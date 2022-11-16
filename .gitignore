@@ -1,0 +1,17 @@
+# BBSD used as tutorial code
+BBSD-Public-master/Deprecated/
+BBSD-Public-master/ShaleGas/
+BBSD-Public-master/Budworms/
+
+#data
+data/
+
+#vensim data
+src/current.vdfx
+
+# google drive link
+G-drive 8_SRQ2.lnk
+
+
+/src/.RData
+/src/.Rhistory

@@ -1,0 +1,1992 @@
+{UTF-8}
+"pre-ICU deaths"[ageGroup]  = A FUNCTION OF( "LoS pre-ICU ward","pre-ICU ward") ~~|
+"pre-ICU deaths"[ageGroup]=
+	adjusted case fatality rate ward[ageGroup]*"pre-ICU ward"[ageGroup]/"LoS pre-ICU ward"
+	~	person/Day
+	~		|
+
+transfer to ICU[ageGroup]  = A FUNCTION OF( "LoS pre-ICU ward","pre-ICU ward") ~~|
+transfer to ICU[ageGroup]=
+	(1-adjusted case fatality rate ward[ageGroup]) *"pre-ICU ward"[ageGroup]/"LoS pre-ICU ward"
+	~	person/Day
+	~		|
+
+ICU deaths[ageGroup]=
+	case fatality rate ICU[ageGroup]*ICU[ageGroup]/ICU treatment time deceased patients
+	~	person/Day
+	~		|
+
+ICU deceased[ageGroup]= INTEG (
+	ICU deaths[ageGroup],
+		0)
+	~	person
+	~		|
+
+transfer to ward[ageGroup]=
+	((1-ICU medication coverage) *(1-case fatality rate ICU[ageGroup])*ICU[ageGroup]/LoS ICU\
+		) + (ICU medication coverage *(1-case fatality rate ICU[ageGroup])*ICU[ageGroup]/(LoS ICU\
+		-LoS ICU medication modifier))
+	~	person/Day
+	~		|
+
+ICU[ageGroup]= INTEG (
+	transfer to ICU[ageGroup]-ICU deaths[ageGroup]-transfer to ward[ageGroup],
+		0)
+	~	person
+	~		|
+
+case fatality rate ward[ageGroup]=
+	0.005, 0.045, 0.1
+	~	dmnl
+	~		|
+
+ward[ageGroup]= INTEG (
+	inflow to ward[ageGroup]+transfer to ward[ageGroup]-ward deaths[ageGroup]-ward early release\
+		[ageGroup]-ward recovery[ageGroup]-ward rehab[ageGroup],
+		0)
+	~	person
+	~		|
+
+ward recovery[ageGroup]=
+	((1-ward medication coverage)*(1-case fatality rate ward[ageGroup]-fraction early release\
+		-fraction in need of rehab)*ward[ageGroup]/LoS ward)+(ward medication coverage*(1-case fatality rate ward\
+		[ageGroup]-fraction early release-fraction in need of rehab)*ward[ageGroup]/(LoS ward\
+		-LoS ward medication modifier))
+	~	person/Day
+	~		|
+
+ICU medication coverage=
+	MIN( 1, ZIDZ( medication use, ICU medication demand ) )
+	~	dmnl
+	~		|
+
+case fatality rate ICU[ageGroup]=
+	0.05, 0.55, 0.77
+	~	dmnl
+	~		|
+
+ward medication coverage=
+	ZIDZ( MAX( 0, medication use - ICU medication demand) , ward medication demand )
+	~	dmnl
+	~		|
+
+combined testing demand[ageGroup]=
+	iso symptomatic testing demand[ageGroup] +
+	uninfected testing demand[ageGroup] +
+	unisolated symptomatic testing demand[ageGroup] +
+	public health confirm recovery testing demand[ageGroup]
+	~	test/Day
+	~		|
+
+S to S plus unisolated E ratio[ageGroup]=
+	S[ageGroup]/(S[ageGroup]+E[ageGroup,nonisolated])
+	~	dmnl
+	~		|
+
+suspectible contacts to quarantine per day[ageGroup]=
+	contacts to isolate per day[ageGroup]*S to S plus unisolated E ratio[ageGroup]*willingness to quarantine
+	~	person/Day
+	~		|
+
+maximum medication use=
+	medication/medication emergency emptying time
+	~	medication/Day
+	~		|
+
+vaccination rate total demand[ageGroup]=
+	MIN(S[ageGroup], (effective vaccination willingness[ageGroup] * unvaccinated population size\
+		[ageGroup]))/average time takes people to arrange vaccination
+	~	person/Day
+	~		|
+
+all vaccination[ageGroup]=
+	ALLOCATE BY PRIORITY( vaccination rate total demand[ageGroup] , priority[ageGroup] ,\
+		 ELMCOUNT(ageGroup) , 1, vaccination rate
+)
+	~	person/Day
+	~		|
+
+quarantining[ageGroup]=
+	suspectible contacts to quarantine per day[ageGroup]
+	~	person/Day
+	~		|
+
+average time takes people to arrange vaccination=
+	1
+	~	Day
+	~		|
+
+medication emergency emptying time=
+	1
+	~	Day
+	~		|
+
+exposed contacts to isolate per day[ageGroup]=
+	contacts to isolate per day[ageGroup]*(1-S to S plus unisolated E ratio[ageGroup])*willingness to isolate
+	~	person/Day
+	~		|
+
+medication use=
+	MIN( (ward medication demand + ICU medication demand), maximum medication use)
+	~	medication/Day
+	~		|
+
+infection[ageGroup,nonisolated]=
+	(force of infection[ageGroup] * S[ageGroup])-exposed contacts to isolate per day[ageGroup\
+		] ~~|
+infection[ageGroup, isolated]=
+	exposed contacts to isolate per day[ageGroup]
+	~	person/Day
+	~		|
+
+PPE emergency emptying time=
+	1
+	~	Day
+	~		|
+
+PPE usage=
+	ICU PPE usage per day+ward PPE usage
+	~	PPE/Day
+	~		|
+
+vaccines emergency emptying time=
+	1
+	~	Day
+	~		|
+
+ICU staff realisible=
+	MIN( PPE available for ICU per day/staff visits per patient per day , ICU staff operational\
+		*"ICU patient-to-staff ratio")
+	~	person
+	~		|
+
+ward PPE usage=
+	MIN(ward capacity supply, ward demand)*staff visits per patient per day
+	~	PPE/Day
+	~		|
+
+ICU PPE needs per day=
+	staff visits per patient per day*Sum(ICU[ageGroup!])
+	~	PPE/Day
+	~		|
+
+ICU PPE usage per day=
+	staff visits per patient per day*MIN(ICU capacity supply,Sum(ICU[ageGroup!]))
+	~	PPE/Day
+	~		|
+
+max vaccination rate=
+	vaccinations/vaccines emergency emptying time
+	~	vaccination/Day
+	~		|
+
+PPE available for ward=
+	max PPE usage rate-ICU PPE usage per day
+	~	PPE/Day
+	~		|
+
+max testing rate=
+	public health test stockpile/testing stockpile emergency emptying speed
+	~	test/Day
+	~		|
+
+ward staff realisible=
+	MIN( PPE available for ward/staff visits per patient per day, ward staff operational\
+		*"ward patient-to-staff ratio")
+	~	person
+	~		|
+
+max PPE usage rate=
+	PPE/PPE emergency emptying time
+	~	PPE/Day
+	~	This is a material delay, albeit a very poorly modelled one
+	|
+
+testing stockpile emergency emptying speed=
+	1
+	~	Day
+	~		|
+
+PPE available for ICU per day=
+	max PPE usage rate
+	~	PPE/Day
+	~	(variable hotfixed, minor
+		 refactor needed)
+	|
+
+gets long covid[ageGroup,isolatedSymptomatics]=
+	recover at home[ageGroup, isolatedSymptomatics]/isolation time sym*fraction with long covid\
+		 ~~|
+gets long covid[ageGroup,unisolatedSymptomatics]=
+	recover at home[ageGroup,unisolatedSymptomatics]/recovery time*fraction with long covid\
+		 ~~|
+gets long covid[ageGroup,homeCare]=
+	recover at home[ageGroup,homeCare]/home care time*fraction with long covid
+	~	person/Day
+	~		|
+
+untested unisolated symptomatics[ageGroup]=
+	symptomatic nonhospitalized manual sum shadow[ageGroup,nonisolated] - tested unisolated symptomatics\
+		[ageGroup]
+	~	person/Day
+	~		|
+
+admission time to hospital=
+	0.0104167
+	~	Day
+	~	you can think of this as patient transport and similar
+	|
+
+recovery at home[ageGroup,isolatedSymptomatics]=
+	(recover at home[ageGroup, isolatedSymptomatics]/isolation time sym)*(1-fraction with long covid\
+		) ~~|
+recovery at home[ageGroup,unisolatedSymptomatics]=
+	(recover at home[ageGroup,unisolatedSymptomatics]/recovery time)*(1-fraction with long covid\
+		) ~~|
+recovery at home[ageGroup,homeCare]=
+	(recover at home[ageGroup,homeCare]/home care time)*(1-fraction with long covid)
+	~	person/Day
+	~		|
+
+total number of living persons[ageGroup]=
+	S[ageGroup]+
+	quarantined susceptibles[ageGroup]+
+	vaccinated[ageGroup]+
+	
+	Sum(E[ageGroup,isolationStatus!])+
+	Sum(I[ageGroup,isolationStatus!])+
+	
+	Waiting for hospital admission[ageGroup]+
+	ward[ageGroup]+
+	"pre-ICU ward"[ageGroup]+
+	ICU[ageGroup]+
+	early release[ageGroup]+
+	rehabilitation[ageGroup]+
+	
+	long covid[ageGroup]+
+	R[ageGroup]+
+	Sum(recover at home[ageGroup,typeOfHomeRecovery!])
+	~	person
+	~		|
+
+asymptomatic recovery time=
+	recovery time+time onset of symptoms
+	~	Day
+	~		|
+
+long covid[ageGroup]= INTEG (
+	Sum(gets long covid[ageGroup,typeOfHomeRecovery!])-recovery from long covid[ageGroup\
+		],
+		0)
+	~	person
+	~		|
+
+inflow to ICU[ageGroup]=
+	chance of ICU*Waiting for hospital admission[ageGroup]/admission time to hospital
+	~	person/Day
+	~		|
+
+unisolated symptomatic willing to test[ageGroup]=
+	willingness to test[ageGroup] * symptomatic nonhospitalized manual sum shadow[ageGroup\
+		,nonisolated]
+	~	person/Day
+	~		|
+
+typeOfHomeRecovery:
+	isolatedSymptomatics, unisolatedSymptomatics, homeCare
+	~	
+	~		|
+
+iso symptomatic testing demand[ageGroup]=
+	symptomatic nonhospitalized manual sum shadow[ageGroup,isolated]*iso sym test per person
+	~	test/Day
+	~		|
+
+inflow to ward[ageGroup]=
+	(1-chance of ICU)*Waiting for hospital admission[ageGroup]/admission time to hospital
+	~	person/Day
+	~		|
+
+R[ageGroup]= INTEG (
+	early release recovery[ageGroup]+Sum(infectious asymptomatic recovery[ageGroup,isolationStatus\
+		!])+
+	Sum(recovery at home[ageGroup,typeOfHomeRecovery!])+rehab release[ageGroup]+ward recovery\
+		[ageGroup]-losing immunity[ageGroup],
+		0)
+	~	person
+	~		|
+
+infectious become symptomatic[ageGroup,isolationStatus]=
+	fraction symptomatic[ageGroup]*I[ageGroup,isolationStatus]/asymptomatic recovery time
+	~	person/Day
+	~		|
+
+symptomatics not to isolate[ageGroup]=
+	untested unisolated symptomatics[ageGroup] - willing to isolate despite being untested\
+		[ageGroup]
+	~	person/Day
+	~		|
+
+recover at home[ageGroup,typeOfHomeRecovery]= INTEG (
+	Sum(symptomatic nonhospitalized[ageGroup,isolationStatus!,typeOfHomeRecovery])-recovery at home\
+		[ageGroup,typeOfHomeRecovery]-gets long covid[ageGroup,typeOfHomeRecovery],
+		0)
+	~	person
+	~		|
+
+symptomatic nonhospitalized[ageGroup,isolationStatus,isolatedSymptomatics]=
+	(infectious become symptomatic[ageGroup,isolationStatus] * (1-fraction recovery in hospital\
+		[ageGroup]) - 
+	symptomatics not to isolate[ageGroup]) * (1-fraction requiring home care) ~~|
+symptomatic nonhospitalized[ageGroup,isolationStatus,unisolatedSymptomatics]=
+	symptomatics not to isolate[ageGroup] ~~|
+symptomatic nonhospitalized[ageGroup,isolationStatus,homeCare]=
+	(infectious become symptomatic[ageGroup,isolationStatus] * (1-fraction recovery in hospital\
+		[ageGroup]) - symptomatics not to isolate[ageGroup])*
+	fraction requiring home care
+	~	person/Day
+	~		|
+
+I[ageGroup,isolationStatus]= INTEG (
+	incubation[ageGroup,isolationStatus]-infectious asymptomatic recovery[ageGroup,isolationStatus\
+		]-symptomatic hospitalized[ageGroup,isolationStatus]-Sum(symptomatic nonhospitalized\
+		[ageGroup,isolationStatus,typeOfHomeRecovery!]),
+		initial number of infectious[ageGroup,isolationStatus])
+	~	person
+	~		|
+
+symptomatic nonhospitalized manual sum shadow[ageGroup,isolationStatus]=
+	Sum(infectious become symptomatic[ageGroup,isolationStatus!])*(1-fraction recovery in hospital\
+		[ageGroup])
+	~	person/Day
+	~		|
+
+exposed to social ratio[ageGroup]=
+	E[ageGroup,nonisolated]/total socially active population[ageGroup]
+	~	dmnl
+	~		|
+
+contacts to isolate per day[g1]=
+	(indices traced per day[g1] * contact rate[g1,tg1] + 
+	 indices traced per day[g2] * contact rate[g2,tg1] +
+	 indices traced per day[g3] * contact rate[g3,tg1] ) * 
+	willingness to test[g1] * fraction of contacts found * "look-back period of ct" ~~|
+contacts to isolate per day[g2]=
+	(indices traced per day[g1] * contact rate[g1,tg2] +
+	 indices traced per day[g2] * contact rate[g2,tg2] +
+	 indices traced per day[g3] * contact rate[g3,tg2] ) * 
+	willingness to test[g2] * fraction of contacts found * "look-back period of ct" ~~|
+contacts to isolate per day[g3]=
+	(indices traced per day[g1] * contact rate[g1,tg3] +
+	 indices traced per day[g2] * contact rate[g2,tg3] + 
+	 indices traced per day[g3] * contact rate[g3,tg3] ) *
+	willingness to test[g3] * fraction of contacts found * "look-back period of ct"
+	~	person/Day
+	~		|
+
+total socially active population[ageGroup]=
+	S[ageGroup]+E[ageGroup,nonisolated]+I[ageGroup,nonisolated]+R[ageGroup]+vaccinated[ageGroup\
+		]+recover at home[ageGroup, unisolatedSymptomatics]
+	~	person
+	~		|
+
+hospital admission time=
+	0.5/24
+	~	Day
+	~		|
+
+"S>0"[ageGroup]:THE CONDITION:
+	:IMPLIES:S[ageGroup]>=-0.1
+	~	
+	~		|
+
+should be zero[ageGroup]=
+	total number of living persons[ageGroup]+deceased[ageGroup]-initial population size[\
+		ageGroup]
+	~	person
+	~		|
+
+"d people/dt=0"[ageGroup]:THE CONDITION:
+	:IMPLIES:-0.1<should be zero[ageGroup] :AND: should be zero[ageGroup]<0.1
+	~	
+	~		|
+
+initial number of infectious[ageGroup,isolationStatus]=
+	0,0;
+	0,0;
+	0, 42;
+	~	person
+	~		|
+
+"R>0"[ageGroup]:THE CONDITION:
+	:IMPLIES:R[ageGroup]>=-0.1
+	~	
+	~		|
+
+"E>0"[ageGroup,isolationStatus]:THE CONDITION:
+	:IMPLIES:E[ageGroup,isolationStatus]>=-0.1
+	~	
+	~		|
+
+initial virusfree population size[ageGroup]=
+	initial population size[ageGroup]-Sum(initial number of infectious[ageGroup,isolationStatus\
+		!])
+	~	person
+	~		|
+
+"I>0"[ageGroup,isolationStatus]:THE CONDITION:
+	:IMPLIES:I[ageGroup,isolationStatus]>=-0.1
+	~	
+	~		|
+
+Waiting for hospital admission[ageGroup]= INTEG (
+	Sum(symptomatic hospitalized[ageGroup,isolationStatus!])-inflow to ICU[ageGroup]-inflow to ward\
+		[ageGroup],
+		0)
+	~	person
+	~		|
+
+symptomatic hospitalized[ageGroup,isolationStatus]=
+	infectious become symptomatic[ageGroup,isolationStatus]*fraction recovery in hospital\
+		[ageGroup]
+	~	person/Day
+	~		|
+
+E[ageGroup,isolationStatus]= INTEG (
+	infection[ageGroup,isolationStatus]-incubation[ageGroup,isolationStatus],
+		0)
+	~	person [0,?]
+	~		|
+
+R number=
+	( LN( 1 ) - 
+	  LN( ( Sum(S[ageGroup!]) + Sum(vaccinated[ageGroup!]) +  Sum(quarantined susceptibles\
+		[ageGroup!]) )/
+	        Sum(initial population size[ageGroup!]) 
+	    )
+	) /
+	 ( 1 - ( Sum(S[ageGroup!]) + Sum(vaccinated[ageGroup!]) + Sum(quarantined susceptibles\
+		[ageGroup!]) )/
+	         Sum(initial population size[ageGroup!]) )
+	~	dmnl
+	~		|
+
+incubation[ageGroup,isolationStatus]=
+	E[ageGroup,isolationStatus]/incubation time
+	~	person/Day
+	~		|
+
+infected=
+	Sum(early release[ageGroup!]) +
+	Sum(E[ageGroup!,isolationStatus!]) + 
+	Sum(ICU[ageGroup!]) + 
+	Sum("pre-ICU ward"[ageGroup!]) + 
+	Sum(I[ageGroup!,isolationStatus!]) +
+	Sum(ward[ageGroup!]) + 
+	Sum(recover at home[ageGroup!,typeOfHomeRecovery!])
+	~	person
+	~		|
+
+losing immunity[ageGroup]=
+	R[ageGroup]/immunity period
+	~	person/Day
+	~		|
+
+S[ageGroup]= INTEG (
+	deimmunisation[ageGroup]+losing immunity[ageGroup]+recovery from long covid[ageGroup\
+		]+stop quarantining[ageGroup]-Sum(infection[ageGroup, isolationStatus!])-quarantining\
+		[ageGroup]-vaccination[ageGroup],
+		initial virusfree population size[ageGroup] * (1 - initial vaccination coverage))
+	~	person
+	~		|
+
+unisolated not willing to be tested[ageGroup]=
+	untested unisolated symptomatics[ageGroup] * (1 - willingness to test[ageGroup])
+	~	person/Day
+	~		|
+
+willing to isolate despite being untested[ageGroup]=
+	(untested unisolated symptomatics[ageGroup] - unisolated not willing to be tested[ageGroup\
+		]) * (1 - fraction untested still willing to isolate )
+	~	person/Day
+	~	These are the people who wanted to get tested, but they couldn't, and they \
+		decided to still to isolate despite not getting any test results
+	|
+
+infectious asymptomatic recovery[ageGroup,isolationStatus]=
+	I[ageGroup,isolationStatus]*(1-fraction symptomatic[ageGroup])/time recovery asym
+	~	person/Day
+	~		|
+
+recovery from long covid[ageGroup]=
+	long covid[ageGroup]/recovery time from long covid
+	~	person/Day
+	~		|
+
+fraction recovery in hospital[ageGroup]=
+	0.0034, 0.0739, 0.2111
+	~	dmnl
+	~		|
+
+"pre-ICU ward"[ageGroup]= INTEG (
+	inflow to ICU[ageGroup]-"pre-ICU deaths"[ageGroup]-transfer to ICU[ageGroup],
+		0)
+	~	person
+	~		|
+
+unisolated symptomatic testing demand[ageGroup]=
+	unisolated symptomatic test per person*unisolated symptomatic willing to test[ageGroup\
+		]
+	~	test/Day
+	~		|
+
+staff testing rate=
+	testing staff*test per staff per day
+	~	test/Day
+	~		|
+
+unvaccinated population size[ageGroup]=
+	initial population size[ageGroup] - deceased[ageGroup] - vaccinated[ageGroup]
+	~	person
+	~		|
+
+supply rate of tests=
+	MIN(max testing rate, staff testing rate)
+	~	test/Day
+	~		|
+
+vaccination rate=
+	person per vaccination * MIN(max vaccination rate, vaccination per staff per day * vaccination staff\
+		)
+	~	person/Day
+	~		|
+
+testing coverage[ageGroup]=
+	ZIDZ( testing rate by age group[ageGroup], combined testing demand[ageGroup])
+	~	dmnl
+	~		|
+
+tested unisolated symptomatics[ageGroup]=
+	testing coverage[ageGroup]*unisolated symptomatic willing to test[ageGroup]
+	~	person/Day
+	~		|
+
+person per vaccination=
+	1/vaccination per person
+	~	person/vaccination
+	~		|
+
+isolationStatus:
+	isolated, nonisolated
+	~	
+	~		|
+
+uninfected testing demand[ageGroup]=
+	recovery test per person*stop quarantining[ageGroup]
+	~	test/Day
+	~		|
+
+recovery test per person=
+	2
+	~	test/person
+	~		|
+
+public health confirm recovery testing demand[ageGroup]=
+	(gets long covid[ageGroup,homeCare]+infectious asymptomatic recovery[ageGroup,isolated\
+		]+
+	gets long covid[ageGroup,isolatedSymptomatics]+ward rehab[ageGroup])*recovery test per person
+	~	test/Day
+	~		|
+
+vaccinations= INTEG (
+	acquisition vaccinations-vaccination use,
+		0)
+	~	vaccination
+	~		|
+
+vaccination use=
+	Sum(all vaccination[ageGroup!])*vaccination per person
+	~	vaccination/Day
+	~		|
+
+"ward patient-to-staff ratio"=
+	4
+	~	person/staff
+	~		|
+
+vaccination willingness[ageGroup]=
+	0.72, 0.72, 0.72
+	~	dmnl
+	~		|
+
+effective vaccination willingness[ageGroup]=
+	MAX(initial vaccination coverage, vaccination willingness[ageGroup])
+	~	dmnl
+	~		|
+
+initial vaccination coverage=
+	0
+	~	dmnl
+	~		|
+
+vaccinated[ageGroup]= INTEG (
+	vaccination[ageGroup]-deimmunisation[ageGroup],
+		initial virusfree population size[ageGroup] * initial vaccination coverage)
+	~	person
+	~		|
+
+vaccination[ageGroup]=
+	all vaccination[ageGroup] * vaccine efficacy
+	~	person/Day
+	~	Only non-isolated suspectibles can be vaccinated
+	|
+
+"look-back period of ct"=
+	2
+	~	Day
+	~		|
+
+willingness to quarantine=
+	1
+	~	dmnl
+	~		|
+
+infectious[ageGroup]=
+	I[ageGroup,nonisolated] + recover at home[ageGroup,unisolatedSymptomatics]
+	~	person
+	~		|
+
+fraction untested still willing to isolate=
+	0.5
+	~	dmnl
+	~		|
+
+willingness to isolate=
+	0.75
+	~	dmnl
+	~		|
+
+ICU medication demand=
+	Sum(ICU[ageGroup!])*medication per person per day
+	~	medication/Day
+	~		|
+
+ward medication demand=
+	(Sum("pre-ICU ward"[ageGroup!]) + Sum(ward[ageGroup!]))*medication per person per day
+	~	medication/Day
+	~		|
+
+testing rate by age group[ageGroup]=
+	ALLOCATE BY PRIORITY( combined testing demand[ageGroup] , priority[ageGroup] , ELMCOUNT\
+		(ageGroup) , 1, supply rate of tests)
+	~	test/Day
+	~		|
+
+iso sym test per person=
+	2
+	~	test/person
+	~		|
+
+quarantined susceptibles[ageGroup]= INTEG (
+	quarantining[ageGroup]-stop quarantining[ageGroup],
+		0)
+	~	person
+	~		|
+
+quarantining period=
+	5
+	~	Day
+	~		|
+
+symptomatics to isolate[ageGroup]=
+	tested unisolated symptomatics[ageGroup]
+	~	person/Day
+	~		|
+
+stop quarantining[ageGroup]=
+	quarantined susceptibles[ageGroup]/quarantining period
+	~	person/Day
+	~		|
+
+test use=
+	Sum(testing rate by age group[ageGroup!])
+	~	test/Day
+	~		|
+
+indices traced per day[ageGroup]=
+	ALLOCATE BY PRIORITY( tested unisolated symptomatics[ageGroup],
+	                      priority[ageGroup],
+	                      ELMCOUNT(ageGroup),
+	                      1,
+	                      capacity for contact tracing per day)
+	~	person/Day
+	~		|
+
+unisolated symptomatic test per person=
+	1
+	~	test/person
+	~		|
+
+isolation time sym=
+	10
+	~	Day
+	~		|
+
+test acqusition=
+	9e+13
+	~	test/Day
+	~		|
+
+fraction of contacts found=
+	0.5
+	~	dmnl
+	~		|
+
+ICU capacity supply=
+	MIN( MIN( ICU bed capacity*"patient-to-bed ratio" , ICU staff realisible ), mechanical ventillator capacity\
+		 * "bed-to-ventilator ratio"*"patient-to-bed ratio")
+	~	person
+	~		|
+
+ward staff operational=
+	ward staff capacity*(1-ward absenteeism)
+	~	staff
+	~		|
+
+ward capacity supply=
+	MIN( ward bed capacity*"patient-to-bed ratio" , ward staff realisible)
+	~	person
+	~		|
+
+staff visits per patient per day=
+	14.6
+	~	PPE/(Day * person)
+	~		|
+
+acquisition PPE=
+	2.5e+08
+	~	PPE/Day
+	~		|
+
+force of infection[g1]=
+	(( infectious[g1] * contact rate[g1, tg1] + infectious[g2] * contact rate[g2, tg1] +\
+		 infectious[g3] * contact rate
+	[g3, tg1] ) * transmission probability)/total number of living persons[g1] ~~|
+force of infection[g2]=
+	((infectious[g1] * contact rate[g1, tg2] + infectious[g2] * contact rate[g2, tg2] + \
+		infectious[g3] * contact rate
+	[g3, tg2] ) * transmission probability)/total number of living persons[g2] ~~|
+force of infection[g3]=
+	( ( infectious[g1] * contact rate[g1, tg3] + infectious[g2] * contact rate[g2, tg3] \
+		+ infectious[g3] * contact rate
+	[g3, tg3] ) * transmission probability)/total number of living persons[g3]
+	~	1/Day
+	~		|
+
+ward treatment time deceased patients=
+	7.6
+	~	Day
+	~		|
+
+ICU treatment time deceased patients=
+	9.4
+	~	Day
+	~		|
+
+ward deaths[ageGroup]=
+	case fatality rate ward[ageGroup]*ward[ageGroup]/ward treatment time deceased patients
+	~	person/Day
+	~		|
+
+time recovery asym=
+	recovery time+time onset of symptoms
+	~	Day
+	~		|
+
+ward early release[ageGroup]=
+	(ward medication coverage* fraction early release*ward[ageGroup]/(LoS ward-LoS ward medication modifier\
+		-1))+ ( (1- ward medication coverage)* fraction early release*ward[ageGroup]/(LoS ward\
+		-1))
+	~	person/Day
+	~		|
+
+total in hospital=
+	Sum(ICU[ageGroup!])+Sum("pre-ICU ward"[ageGroup!])+Sum(ward[ageGroup!])
+	~	person
+	~		|
+
+deceased[ageGroup]=
+	ICU deceased[ageGroup]+"pre-ICU deceased"[ageGroup]+ward deceased[ageGroup]
+	~	person
+	~		|
+
+public health test stockpile= INTEG (
+	test acqusition-test use,
+		99999)
+	~	test
+	~		|
+
+fraction requiring home care=
+	0.2
+	~	dmnl
+	~		|
+
+fraction with long covid=
+	0.25
+	~	dmnl
+	~		|
+
+PPE= INTEG (
+	acquisition PPE-PPE usage,
+		1000)
+	~	PPE
+	~		|
+
+immunity period=
+	180
+	~	Day
+	~		|
+
+early release[ageGroup]= INTEG (
+	ward early release[ageGroup]-early release recovery[ageGroup]-early release to rehab\
+		[ageGroup],
+		0)
+	~	person
+	~		|
+
+days in rehab=
+	7
+	~	Day
+	~		|
+
+recovery time from long covid=
+	240
+	~	Day
+	~		|
+
+home care time=
+	14
+	~	Day
+	~		|
+
+rehabilitation[ageGroup]= INTEG (
+	early release to rehab[ageGroup]+ward rehab[ageGroup]-rehab release[ageGroup],
+		0)
+	~	person
+	~		|
+
+early release recovery[ageGroup]=
+	(1-fraction in need of rehab) * early release[ageGroup]/remaining time to recover after being released early
+	~	person/Day
+	~		|
+
+early release to rehab[ageGroup]=
+	fraction in need of rehab*early release[ageGroup]/remaining time to recover after being released early
+	~	person/Day
+	~		|
+
+remaining time to recover after being released early=
+	8
+	~	Day
+	~		|
+
+total home care[ageGroup]=
+	early release[ageGroup]+recover at home[ageGroup,homeCare]
+	~	person
+	~		|
+
+rehab release[ageGroup]=
+	rehabilitation[ageGroup]/days in rehab
+	~	person/Day
+	~		|
+
+recovery time=
+	10
+	~	Day
+	~		|
+
+LoS ward medication modifier=
+	1
+	~	Day
+	~		|
+
+medication acquisition=
+	0
+	~	medication/Day
+	~		|
+
+medication= INTEG (
+	medication acquisition-medication use,
+		100)
+	~	medication
+	~		|
+
+ward rehab[ageGroup]=
+	((1-ward medication coverage) * fraction in need of rehab*ward[ageGroup]/LoS ward) +\
+		 (ward medication coverage * fraction in need of rehab*ward[ageGroup]/(LoS ward-LoS ward medication modifier\
+		))
+	~	person/Day
+	~		|
+
+LoS ICU medication modifier=
+	5
+	~	Day
+	~		|
+
+medication per person per day=
+	2
+	~	medication/(person*Day)
+	~		|
+
+patients denied to ward=
+	IF THEN ELSE( MAX(0, ward demand-ward capacity supply) < 0.1, 0, MAX(0, ward demand-\
+		ward capacity supply))
+	~	person
+	~		|
+
+patients denied to ICU=
+	IF THEN ELSE(MAX(0,Sum(ICU[ageGroup!])-ICU capacity supply)<0.1, 0, MAX(0,Sum(ICU[ageGroup\
+		!])-ICU capacity supply))
+	~	person
+	~		|
+
+"bed-to-ventilator ratio"=
+	0.6502
+	~	bed/ventilator
+	~		|
+
+ICU absenteeism=
+	0.11
+	~	dmnl
+	~		|
+
+LoS ICU=
+	10.76
+	~	Day
+	~		|
+
+"LoS pre-ICU ward"=
+	2.65
+	~	Day
+	~		|
+
+LoS ward=
+	10.6
+	~	Day
+	~		|
+
+mechanical ventillator capacity=
+	1000
+	~	ventilator
+	~		|
+
+acquisition vaccinations=
+	87000
+	~	vaccination/Day
+	~		|
+
+"ICU patient-to-staff ratio"=
+	1.5
+	~	person/staff
+	~		|
+
+ward bed capacity=
+	19950
+	~	bed
+	~		|
+
+ward demand=
+	Sum("pre-ICU ward"[ageGroup!]) + Sum(ward[ageGroup!])
+	~	person
+	~		|
+
+ward deceased[ageGroup]= INTEG (
+	ward deaths[ageGroup],
+		0)
+	~	person
+	~		|
+
+ICU bed capacity=
+	1300
+	~	bed
+	~		|
+
+ICU staff capacity=
+	1900
+	~	staff
+	~		|
+
+ICU staff operational=
+	ICU staff capacity*(1-ICU absenteeism)
+	~	staff
+	~		|
+
+chance of ICU=
+	0.08
+	~	dmnl
+	~		|
+
+"patient-to-bed ratio"=
+	1
+	~	person/bed
+	~		|
+
+ward absenteeism=
+	0.11
+	~	dmnl
+	~		|
+
+"pre-ICU deceased"[ageGroup]= INTEG (
+	"pre-ICU deaths"[ageGroup],
+		0)
+	~	person
+	~		|
+
+fraction early release=
+	0.01
+	~	dmnl
+	~		|
+
+fraction in need of rehab=
+	0.4
+	~	dmnl
+	~		|
+
+ward staff capacity=
+	20000
+	~	staff
+	~		|
+
+capacity for contact tracing per day=
+	index per staff per day*staff for contact tracing
+	~	person/Day
+	~		|
+
+index per staff per day=
+	1
+	~	person/(staff*Day)
+	~		|
+
+test per staff per day=
+	40
+	~	test/(staff*Day)
+	~		|
+
+fraction symptomatic[ageGroup]=
+	0.723, 0.85, 0.85
+	~	dmnl
+	~		|
+
+waning immunity=
+	180
+	~	Day
+	~		|
+
+staff for contact tracing=
+	2250
+	~	staff
+	~		|
+
+testing staff=
+	6000
+	~	staff
+	~		|
+
+willingness to test[ageGroup]=
+	1, 1, 1
+	~	dmnl [0,1]
+	~		|
+
+deimmunisation[ageGroup]=
+	vaccinated[ageGroup]/waning immunity
+	~	person/Day
+	~	deimmunized individuals return to non-isolated suspectibles
+	|
+
+vaccination per person=
+	2
+	~	vaccination/person
+	~		|
+
+vaccination per staff per day=
+	96
+	~	vaccination/(Day*staff)
+	~		|
+
+time onset of symptoms=
+	1
+	~	Day
+	~		|
+
+transmission probability=
+	0.01875
+	~	dmnl [0,1]
+	~		|
+
+vaccine efficacy=
+	0.9
+	~	dmnl
+	~		|
+
+vaccination staff=
+	1416
+	~	staff
+	~		|
+
+priority[ageGroup]=
+	1,1,1
+	~	dmnl
+	~		|
+
+toages:
+	tg1,tg2,tg3
+	~	
+	~		|
+
+ageGroup:
+	g1,g2,g3
+	~	
+	~		|
+
+contact rate[ageGroup, toages]=
+	10.9778, 5.51984, 0.485936;
+	2.79752, 9.71646, 0.905317;
+	0.99913, 3.6728, 2.69173;
+	~	person/(person*Day)
+	~		|
+
+incubation time=
+	4.5
+	~	Day
+	~		|
+
+initial population size[ageGroup]=
+	4.87176e+06, 9.0964e+06,3.314e+06
+	~	person
+	~		|
+
+********************************************************
+	.Control
+********************************************************~
+		Simulation Control Parameters
+	|
+
+FINAL TIME  = 300
+	~	Day
+	~	The final time for the simulation.
+	|
+
+INITIAL TIME  = 0
+	~	Day
+	~	The initial time for the simulation.
+	|
+
+SAVEPER  = 
+        TIME STEP
+	~	Day [0,?]
+	~	The frequency with which output is stored.
+	|
+
+TIME STEP  = 0.015625
+	~	Day [0,?]
+	~	The time step for the simulation.
+	|
+
+\\\---/// Sketch information - do not modify anything except names
+V300  Do not put anything below this section - it will be ignored
+*People pathway
+$192-192-192,0,Courier|12||0-0-0|0-0-0|0-0-255|-1--1--1|-1--1--1|96,96,90,0
+10,1,S,-2656,723,46,19,3,131,0,0,0,0,0,0,0,0,0,0,0,0
+10,2,E,-2323,723,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,3,I,-2067,723,74,20,3,131,0,0,0,0,0,0,0,0,0,0,0,0
+10,4,initial population size,-3684,666,48,24,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,5,force of infection,-2406,1212,43,16,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,6,8,2,4,0,0,22,0,0,0,-1--1--1,,1|(-2401,723)|
+1,7,8,1,100,0,0,22,0,0,0,-1--1--1,,1|(-2530,723)|
+11,8,0,-2445,723,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,9,infection,-2445,761,43,9,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,10,12,3,4,0,0,22,0,0,0,-1--1--1,,1|(-2168,723)|
+1,11,12,2,100,0,0,22,0,0,0,-1--1--1,,1|(-2245,723)|
+11,12,0,-2201,723,6,8,34,3,0,0,3,0,0,0,0,0,0,0,0,0
+10,13,incubation,-2201,685,47,9,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,14,incubation time,-2310,587,75,30,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,15,contact rate,-2528,1311,56,9,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,||B|255-128-0,0,0,0,0,0,0
+1,16,14,13,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,17,5,9,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,18,I,-2301,1414,16,9,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,19,15,5,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,20,priority,-3195,324,75,30,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,21,vaccinations,-3062,-122,57,18,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+12,22,48,-3282,-122,25,15,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,23,25,21,4,0,0,22,0,0,0,-1--1--1,,1|(-3150,-122)|
+1,24,25,22,100,0,0,22,0,0,0,-1--1--1,,1|(-3225,-122)|
+11,25,0,-3187,-122,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,26,acquisition vaccinations,-3187,-84,57,16,40,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,27,vaccination per person,-3684,291,53,16,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,28,vaccination rate,-3195,209,53,16,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,29,vaccination staff,-3446,205,53,16,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,30,person per vaccination,-3446,291,53,16,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,31,vaccination per staff per day,-3446,377,71,16,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,32,31,28,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,33,30,28,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,34,29,28,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,35,vaccinated,-2662,416,74,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,36,38,35,4,0,0,22,0,0,0,-1--1--1,,1|(-2685,497)|
+1,37,38,1,100,0,0,22,0,0,0,-1--1--1,,1|(-2685,637)|
+11,38,0,-2685,565,8,6,33,3,0,0,2,0,0,0,0,0,0,0,0,0
+10,39,vaccination,-2768,565,52,9,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,40,42,1,4,0,0,22,0,0,0,-1--1--1,,1|(-2648,637)|
+1,41,42,35,100,0,0,22,0,0,0,-1--1--1,,1|(-2648,497)|
+11,42,0,-2648,565,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,43,deimmunisation,-2565,565,40,17,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,44,waning immunity,-2535,450,75,30,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,45,vaccination rate total demand,-3195,463,53,24,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,46,44,43,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,47,effective vaccination willingness,-3446,463,53,24,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,48,vaccine efficacy,-2944,472,39,16,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,49,35,43,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,50,48,39,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,51,time onset of symptoms,-1220,571,62,16,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,52,transmission probability,-2192,1311,57,16,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,||B|255-128-0,0,0,0,0,0,0
+1,53,52,5,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,54,infectious,-2360,1311,75,30,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,55,18,54,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,56,54,5,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,57,fraction symptomatic,-1903,854,53,16,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,58,59,3,100,0,0,22,0,0,0,-1--1--1,,1|(-2067,938)|
+11,59,0,-2067,1140,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,60,infectious asymptomatic recovery,-1984,1140,57,24,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,61,time recovery asym,-1771,1140,75,30,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,62,1,9,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,63,initial virusfree population size,-2944,666,71,24,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,64,4,63,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,65,63,1,0,0,0,0,0,128,1,-1--1--1,,1|(0,0)|
+10,66,fraction requiring home care,-1492,854,67,24,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,67,recovery time,-1215,628,39,16,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,68,home care time,-1214,1131,43,16,8,131,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,69,long covid,-1492,1737,54,18,3,131,0,0,-1,0,0,0,0,0,0,0,0,0
+10,70,recovery time from long covid,-2939,1799,75,30,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,71,fraction with long covid,-1212,1216,62,16,8,131,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,72,R,-1706,1549,43,13,3,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,73,immunity period,-2640,1530,75,30,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,74,59,72,4,0,0,22,0,192,0,-1--1--1,,2|(-2067,1549)|(-1908,1549)|
+10,75,recovery time,-1571,1219,43,16,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,76,time onset of symptoms,-1571,1140,57,16,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,77,75,61,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,78,76,61,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,79,2,13,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,80,3,60,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,81,57,60,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,82,61,60,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,83,quarantined susceptibles,-2660,1022,51,20,3,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,84,86,1,100,0,0,22,0,192,0,-1--1--1,,1|(-2634,807)|
+1,85,86,83,4,0,0,22,0,192,0,-1--1--1,,1|(-2634,943)|
+11,86,0,-2634,879,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,87,quarantining,-2570,879,56,9,40,131,0,0,-1,0,0,0,0,0,0,0,0,0
+1,88,90,83,100,0,0,22,0,192,0,-1--1--1,,1|(-2671,943)|
+1,89,90,1,4,0,0,22,0,192,0,-1--1--1,,1|(-2671,807)|
+11,90,0,-2671,879,8,6,33,3,0,0,2,0,0,0,0,0,0,0,0,0
+10,91,stop quarantining,-2736,879,57,16,40,131,0,0,-1,0,0,0,0,0,0,0,0,0
+1,92,83,91,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,93,quarantining period,-2741,1078,75,30,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,94,93,91,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,95,2,13,0,1,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,96,isolation time sym,-1218,1056,43,16,8,131,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,97,deceased,-3684,568,47,9,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,98,47,45,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,99,1,45,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,100,R number,-3446,776,42,9,8,3,0,22,-1,0,0,0,-1--1--1,255-192-0,||B|255-128-192,0,0,0,0,0,0
+1,101,4,100,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,102,S,-3684,817,16,9,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,103,vaccinated,-3684,748,56,9,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,104,102,100,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,105,103,100,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,106,quarantined susceptibles,-3684,890,62,16,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,107,106,100,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,108,all vaccination,-2944,331,53,16,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,109,20,108,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,110,28,108,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,111,45,108,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,112,108,39,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,113,initial vaccination coverage,-2751,305,53,24,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,114,initial virusfree population size,-2598,315,76,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,115,114,35,0,0,0,0,0,192,1,-1--1--1,,1|(0,0)|
+1,116,113,35,0,0,0,0,0,192,1,-1--1--1,,1|(0,0)|
+10,117,initial vaccination coverage,-2556,628,53,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,118,117,1,0,0,0,0,0,192,1,-1--1--1,,1|(0,0)|
+10,119,initial vaccination coverage,-3684,422,53,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,120,vaccination willingness,-3684,496,53,16,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,121,120,47,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,122,119,47,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,123,vaccination per person,-2784,19,57,16,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+12,124,48,-2844,-122,25,15,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,125,127,21,100,0,0,22,0,192,0,-1--1--1,,1|(-2977,-122)|
+1,126,127,124,4,0,0,22,0,192,0,-1--1--1,,1|(-2903,-122)|
+11,127,0,-2944,-122,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,128,vaccination use,-2944,-84,53,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,129,108,128,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,130,max vaccination rate,-3446,119,71,16,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,131,21,130,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,132,130,28,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,133,unvaccinated population size,-3446,611,71,16,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,134,133,45,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,135,4,133,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,136,97,133,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,137,vaccinated,-3684,611,56,9,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,138,137,133,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,139,"pre-ICU ward",91,533,58,13,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,140,ward,1015,387,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,141,chance of ICU,80,464,43,16,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,142,"pre-ICU deceased",91,760,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,143,ICU,435,533,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,144,"LoS pre-ICU ward",326,698,53,16,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,145,147,142,4,0,0,22,0,0,0,-1--1--1,,1|(91,690)|
+1,146,147,139,100,0,0,22,0,0,0,-1--1--1,,1|(91,587)|
+11,147,0,91,634,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,148,"pre-ICU deaths",133,634,34,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,149,151,143,4,0,0,22,0,0,0,-1--1--1,,1|(339,533)|
+1,150,151,139,100,0,0,22,0,0,0,-1--1--1,,1|(210,533)|
+11,151,0,277,533,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,152,transfer to ICU,277,557,39,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,153,144,152,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,154,144,148,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,155,139,148,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,156,139,152,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,157,ICU deceased,435,762,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,158,160,157,4,0,0,22,0,0,0,-1--1--1,,1|(435,691)|
+1,159,160,143,100,0,0,22,0,0,0,-1--1--1,,1|(435,590)|
+11,160,0,435,634,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,161,ICU deaths,490,634,47,9,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,162,164,140,4,0,0,22,0,0,0,-1--1--1,,1|(438,387)|
+1,163,164,143,100,0,0,22,0,0,0,-1--1--1,,1|(438,491)|
+11,164,0,438,463,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,165,transfer to ward,499,463,53,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,166,LoS ICU,726,612,34,9,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,167,166,165,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,168,143,161,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,169,143,165,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,170,ward deceased,1020,762,43,21,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,171,173,170,4,0,0,22,0,0,0,-1--1--1,,1|(1022,671)|
+1,172,173,140,100,0,0,22,0,0,0,-1--1--1,,1|(1022,498)|
+11,173,0,1022,596,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,174,ward deaths,1082,596,52,9,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,175,LoS ward,736,263,38,9,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,176,140,174,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,177,178,72,4,0,0,22,0,0,0,-1--1--1,,1|(1165,1549)|
+11,178,0,1165,485,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,179,ward recovery,1212,485,39,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,180,140,179,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,181,fraction early release,736,195,62,16,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,182,183,140,100,0,0,22,0,0,0,-1--1--1,,1|(1015,225)|
+11,183,0,1129,225,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,184,ward rehab,1129,263,47,9,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,185,186,140,100,0,0,22,0,0,0,-1--1--1,,1|(991,254)|
+11,186,0,991,135,8,6,33,3,0,0,2,0,0,0,0,0,0,0,0,0
+10,187,ward early release,935,135,48,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,188,181,187,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,189,140,187,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,190,140,184,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,191,175,184,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,192,fraction early release,1348,547,67,16,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,193,192,179,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,194,178,140,100,0,0,22,0,0,0,-1--1--1,,1|(1165,387)|
+10,195,LoS ward medication modifier,1233,371,48,24,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,196,195,179,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,197,195,184,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,198,ward medication coverage,1348,371,48,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,199,198,179,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,200,198,184,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,201,ICU medication coverage,726,534,48,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,202,LoS ICU medication modifier,726,441,48,24,8,3,0,2,-1,0,0,0,255-128-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,203,201,165,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,204,early release,1281,-1,51,13,3,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,205,186,204,4,0,0,22,0,192,0,-1--1--1,,1|(991,-1)|
+1,206,208,204,100,0,0,22,0,192,0,-1--1--1,,1|(1498,-1)|
+1,207,208,72,4,0,0,22,0,192,0,-1--1--1,,1|(1498,1549)|
+11,208,0,1498,76,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,209,early release recovery,1568,76,62,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,210,remaining time to recover after being released early,1738,168,90,24,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,211,210,209,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,212,204,209,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,213,rehabilitation,1289,227,53,13,3,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,214,183,213,4,0,0,22,0,192,0,-1--1--1,,1|(1185,225)|
+1,215,217,213,100,0,0,22,0,192,0,-1--1--1,,1|(1472,227)|
+1,216,217,72,4,0,0,22,0,192,0,-1--1--1,,1|(1472,1549)|
+11,217,0,1472,259,8,6,33,3,0,0,2,0,0,0,0,0,0,0,0,0
+10,218,rehab release,1430,259,34,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,219,days in rehab,1574,368,34,16,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,220,219,218,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,221,213,218,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,222,224,204,100,0,0,22,0,192,0,-1--1--1,,1|(1284,72)|
+1,223,224,213,4,0,0,22,0,192,0,-1--1--1,,1|(1284,178)|
+11,224,0,1284,137,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,225,early release to rehab,1367,137,62,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,226,210,225,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,227,204,225,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,228,fraction recovery in hospital,-1340,666,53,24,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,229,ward treatment time deceased patients,1095,656,67,24,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,230,229,174,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,231,ICU treatment time deceased patients,598,758,62,24,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,232,231,161,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,233,fraction in need of rehab,1348,468,67,16,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,234,233,179,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,235,175,187,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,236,ward medication coverage,736,113,48,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,237,236,187,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,238,fraction in need of rehab,1661,238,67,16,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,239,238,225,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,240,Waiting for hospital admission,-575,533,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,241,243,240,4,0,0,22,0,0,0,-1--1--1,,1|(-1086,526)|
+1,242,243,3,100,0,0,22,0,0,0,-1--1--1,,1|(-2067,526)|
+11,243,0,-1563,526,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,244,symptomatic hospitalized,-1563,550,62,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,245,247,139,4,0,0,22,0,0,0,-1--1--1,,1|(-53,533)|
+1,246,247,240,100,0,0,22,0,0,0,-1--1--1,,1|(-343,533)|
+11,247,0,-145,533,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,248,inflow to ICU,-145,557,43,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,249,141,248,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,250,252,140,4,0,0,22,0,0,0,-1--1--1,,1|(435,374)|
+1,251,252,240,100,0,0,22,0,0,0,-1--1--1,,1|(-575,374)|
+11,252,0,-111,374,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,253,inflow to ward,-111,398,43,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,254,141,253,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,255,infectious become symptomatic,-1802,628,53,24,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,256,57,255,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,257,3,255,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,258,255,244,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,259,228,244,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,260,240,248,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,261,240,253,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,262,264,1,4,0,0,22,0,0,0,-1--1--1,,1|(-3006,723)|
+1,263,264,69,100,0,0,22,0,0,0,-1--1--1,,1|(-3006,1737)|
+11,264,0,-3006,1679,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,265,recovery from long covid,-2931,1679,67,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,266,69,265,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,267,70,265,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,268,270,1,4,0,0,22,0,0,0,-1--1--1,,3|(-2837,735)|(-2737,735)|(-2719,735)|
+1,269,270,72,100,0,0,22,0,0,0,-1--1--1,,3|(-2837,1687)|(-1706,1687)|(-1706,1624)|
+11,270,0,-2837,1616,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,271,losing immunity,-2790,1616,39,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,272,73,271,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,273,72,271,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+12,274,0,-2291,1132,39,16,8,7,0,0,-1,0,0,0,0,0,0,0,0,0
+this is beta*I/N
+10,275,initial number of infectious,-2169,528,67,24,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,276,275,3,0,0,0,0,0,64,1,-1--1--1,,1|(0,0)|
+10,277,initial number of infectious,-3195,731,71,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,278,277,63,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,279,admission time to hospital,-92,464,67,16,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,280,279,248,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,281,279,253,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,282,recover at home,-1215,723,80,20,3,131,0,0,0,0,0,0,0,0,0,0,0,0
+1,283,285,69,4,0,0,22,0,0,0,-1--1--1,,1|(-1146,1737)|
+1,284,285,282,100,0,0,22,0,0,0,-1--1--1,,1|(-1146,866)|
+11,285,0,-1146,995,8,6,33,3,0,0,4,0,0,0,0,0,0,0,0,0
+10,286,gets long covid,-1095,995,43,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,287,289,282,4,0,0,22,0,0,0,-1--1--1,,1|(-1426,723)|
+1,288,289,3,100,0,0,22,0,0,0,-1--1--1,,1|(-1781,723)|
+11,289,0,-1563,723,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,290,symptomatic nonhospitalized,-1563,747,71,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,291,symptomatics not to isolate,-1652,854,67,16,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,292,untested unisolated symptomatics,-1744,1000,62,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,293,292,291,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,294,willing to isolate despite being untested,-1585,999,71,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,295,294,291,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,296,66,290,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,297,291,290,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,298,255,290,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,299,asymptomatic recovery time,-1563,627,62,16,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,300,51,299,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,301,299,255,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,302,67,299,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,303,68,286,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,304,96,286,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,305,282,286,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,306,67,286,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,307,recover at home,-2438,1414,53,16,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,308,307,54,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,309,311,72,4,0,0,22,0,0,0,-1--1--1,,1|(-1282,1549)|
+1,310,311,282,100,0,0,22,0,0,0,-1--1--1,,1|(-1282,867)|
+11,311,0,-1282,998,8,6,33,3,0,0,2,0,0,0,0,0,0,0,0,0
+10,312,recovery at home,-1343,998,53,16,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,313,68,312,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,314,96,312,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,315,282,312,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,316,67,312,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,317,71,312,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,318,71,286,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,319,total number of living persons,-2683,1311,62,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,320,319,5,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,321,228,290,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,322,vaccines emergency emptying time,-3684,119,62,24,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,323,322,130,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,324,LoS ward medication modifier,736,23,48,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,325,324,187,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,326,LoS ward,1348,605,47,9,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,327,326,179,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,328,238,209,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,329,27,30,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,330,123,128,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+12,331,0,815,779,118,32,8,7,0,3,-1,0,0,0,255-0-0,0-0-0,|||255-0-0,0,0,0,0,0,0
+This is not really case fatality, as the material delay's /time components are different
+12,332,0,1336,726,118,32,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-0-0,0,0,0,0,0,0
+This is not really case fatality, as the material delay's /time components are different
+10,333,suspectible contacts to quarantine per day,-2529,945,90,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,334,333,87,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,335,exposed contacts to isolate per day,-2277,863,76,24,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,336,335,9,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,337,average time takes people to arrange vaccination,-3446,539,85,24,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,338,337,45,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,339,fraction in need of rehab,1348,304,62,16,8,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,340,339,184,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+12,341,0,-3468,873,74,24,8,7,0,18,-1,0,0,0,-1--1--1,0-0-0,||B|255-0-0,0,0,0,0,0,0
+R number calculation is wrong
+12,342,0,-3384,874,40,20,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-0-0,0,0,0,0,0,0
+10,343,case fatality rate ward,1348,654,62,16,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-0-0,0,0,0,0,0,0
+10,344,case fatality rate ICU,726,682,62,16,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-0-0,0,0,0,0,0,0
+1,345,344,165,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,346,202,165,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,347,344,161,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,348,343,179,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,349,343,174,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+\\\---/// Sketch information - do not modify anything except names
+V300  Do not put anything below this section - it will be ignored
+*Contact tracing and testing
+$192-192-192,0,Times New Roman|12||0-0-0|0-0-0|0-0-255|-1--1--1|-1--1--1|96,96,73,0
+10,1,capacity for contact tracing per day,1710,225,63,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,2,staff for contact tracing,1464,189,75,30,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,3,index per staff per day,1464,274,45,19,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,4,2,1,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,5,3,1,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,6,indices traced per day,1911,609,44,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,7,priority,1710,514,75,30,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,8,7,6,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,9,contacts to isolate per day,2131,609,57,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,10,contact rate,1911,693,47,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,11,6,9,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,12,10,9,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,13,willingness to test,1911,861,54,11,8,3,0,2,0,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,14,13,9,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,15,public health test stockpile,830,-408,40,20,3,3,0,0,0,0,0,0,0,0,0,0,0,0
+12,16,48,495,-408,25,15,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,17,19,15,4,0,0,22,0,0,0,-1--1--1,,1|(733,-408)|
+1,18,19,16,100,0,0,22,0,0,0,-1--1--1,,1|(592,-408)|
+11,19,0,671,-408,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,20,test acqusition,671,-370,75,30,40,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,21,supply rate of tests,1053,41,75,30,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,22,testing rate by age group,1231,225,58,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,23,testing staff,570,-55,36,11,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,24,test per staff per day,570,-104,52,19,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,25,priority,1053,225,75,30,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,26,25,22,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,27,21,22,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,28,unisolated symptomatic testing demand,830,514,74,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+12,29,0,750,-476,125,38,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|||128-0-64,0,0,0,0,0,0
+If there isn't enough testing capacity, the people that can't be tested are not accumulated (so they will not be tested later on) (Lisette)
+12,30,48,1123,-408,25,15,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,31,33,15,100,0,0,22,0,192,0,-1--1--1,,1|(925,-408)|
+1,32,33,30,4,0,0,22,0,192,0,-1--1--1,,1|(1045,-408)|
+11,33,0,987,-408,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,34,test use,987,-370,75,30,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,35,fraction of contacts found,1911,777,47,19,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,36,35,9,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,37,tested unisolated symptomatics,1710,609,53,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,38,37,6,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,39,1,6,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,40,willingness to test,315,515,47,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,41,unisolated symptomatic test per person,570,514,74,19,8,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,42,41,28,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,43,iso sym test per person,570,408,75,30,8,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,44,iso symptomatic testing demand,830,351,52,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,45,43,44,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,46,stop quarantining,570,115,75,30,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,47,uninfected testing demand,830,129,55,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,48,46,47,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+12,49,0,1184,-292,120,28,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|||128-0-64,0,0,0,0,0,0
+opted to exclude early release and ward test usage, since those would be handled by the hospital (Lisette)
+10,50,combined testing demand,1053,514,54,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,51,44,50,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,52,47,50,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,53,28,50,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,54,public health confirm recovery testing demand,830,225,78,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,55,54,50,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,56,50,22,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,57,testing coverage,1464,514,75,30,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,58,50,57,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,59,22,57,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,60,57,37,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,61,"look-back period of ct",1911,945,56,19,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,62,willingness to isolate,2131,514,42,19,8,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,63,fraction untested still willing to isolate,939,911,65,19,8,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,64,recovery test per person,570,207,75,30,8,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,65,64,54,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,66,recovery test per person,570,50,75,30,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,67,66,47,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,68,max testing rate,830,-167,49,11,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,69,15,68,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,70,68,21,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,71,staff testing rate,830,-75,49,11,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,72,71,21,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,73,24,71,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,74,23,71,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,75,61,9,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,76,unisolated symptomatic willing to test,570,609,74,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,77,76,28,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,78,40,76,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,79,76,37,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+12,80,0,1717,782,106,28,8,7,0,2,-1,0,0,0,0-0-0,0-0-0,|||128-0-64,0,0,0,0,0,0
+"It is assumed susceptibles do not meet multiple infectious people per day" (Lisette)
+10,81,unisolated not willing to be tested,1220,911,66,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,82,willing to isolate despite being untested,1086,1045,70,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,83,63,82,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,84,willingness to test,1358,785,47,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,85,84,81,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,86,untested unisolated symptomatics,1085,785,44,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,87,37,86,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,88,86,82,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,89,86,81,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,90,81,82,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,91,infectious asymptomatic recovery,570,288,79,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,92,91,54,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,93,ward rehab,570,161,46,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,94,93,54,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,95,gets long covid,570,253,56,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,96,95,54,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+12,97,0,238,696,113,28,8,7,0,2,-1,0,0,0,0-0-0,0-0-0,|||128-0-64,0,0,0,0,0,0
+circular equatins error happened bc vensim is non-symbolic, so we have to manually sum this variable
+10,98,symptomatic nonhospitalized manual sum shadow,318,609,73,28,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,99,infectious become symptomatic,64,490,62,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,100,99,98,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,101,98,76,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,102,98,86,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,103,symptomatic nonhospitalized manual sum shadow,570,340,82,28,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,104,103,44,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,105,fraction recovery in hospital,64,609,59,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,106,105,98,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,107,22,34,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,108,testing stockpile emergency emptying speed,570,-169,65,28,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,109,108,68,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,110,S to S plus unisolated E ratio,2131,1062,44,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,111,suspectible contacts to quarantine per day,2362,852,72,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,112,exposed contacts to isolate per day,2362,609,64,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,113,9,111,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,114,9,112,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,115,110,111,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,116,110,112,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,117,E,1911,1029,16,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,118,117,110,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,119,S,1911,1106,16,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,120,119,110,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,121,willingness to quarantine,2131,1169,42,19,8,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+12,122,0,1642,940,200,47,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-0-0,0,0,0,0,0,0
+note that there's a slight conceptual error: if the time onset of sypmtoms is not equal (or at least not larger) to the look-back period of ct, than the ct will find people already infectious ... right now the SD model doesn't account for that, it assumes that every contact found is either suspectible or exposed
+1,123,121,111,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,124,62,112,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+12,125,0,1522,416,64,28,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|||128-0-128,0,0,0,0,0,0
+assuming 100% test accuracy (Lisette, undocumented)
+\\\---/// Sketch information - do not modify anything except names
+V300  Do not put anything below this section - it will be ignored
+*Hospital resources
+$192-192-192,0,Times New Roman|12||0-0-0|0-0-0|0-0-255|-1--1--1|-1--1--1|96,96,90,0
+10,1,ward staff capacity,749,197,59,11,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,2,ward absenteeism,749,251,56,11,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,3,ward staff operational,980,252,36,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,4,1,3,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,5,2,3,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,6,ICU staff operational,978,657,36,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,7,ICU staff capacity,749,636,57,11,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,8,ICU absenteeism,749,692,54,11,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,9,7,6,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,10,8,6,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,11,"patient-to-bed ratio",1218,370,46,19,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,12,"ICU patient-to-staff ratio",990,507,64,19,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,13,ward capacity supply,1441,251,45,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,14,ward bed capacity,1218,140,58,11,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,15,14,13,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,16,11,13,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,17,ward demand,1441,-17,44,11,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,18,ward,1218,-66,27,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,19,"pre-ICU ward",1218,37,55,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,20,19,17,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,21,18,17,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,22,patients denied to ward,1659,251,56,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,23,13,22,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,24,17,22,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,25,"bed-to-ventilator ratio",1218,695,54,19,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,26,mechanical ventillator capacity,1218,820,59,19,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,27,ICU bed capacity,1218,481,56,11,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,28,ICU capacity supply,1441,584,43,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,29,ICU,1441,493,25,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,30,patients denied to ICU,1659,584,56,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,31,28,30,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,32,29,30,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,33,ward,2199,629,27,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,34,"pre-ICU ward",2199,569,55,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,35,ward medication demand,2382,630,53,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,36,34,35,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,37,33,35,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,38,medication per person per day,2199,697,48,19,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,39,medication,2382,360,40,20,3,3,0,0,-1,0,0,0,0,0,0,0,0,0
+12,40,48,2091,360,25,15,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,41,43,40,100,0,0,22,0,192,0,-1--1--1,,1|(2154,360)|
+1,42,43,39,4,0,0,22,0,192,0,-1--1--1,,1|(2273,360)|
+11,43,0,2199,360,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,44,medication acquisition,2199,387,35,19,40,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+12,45,48,2701,360,25,15,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,46,48,39,100,0,0,22,0,192,0,-1--1--1,,1|(2478,360)|
+1,47,48,45,4,0,0,22,0,192,0,-1--1--1,,1|(2611,360)|
+11,48,0,2541,360,6,8,34,3,0,0,1,0,0,0,0,0,0,0,0,0
+10,49,medication use,2541,379,47,11,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,50,ward medication coverage,2835,630,53,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,51,35,49,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,52,35,50,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+12,53,0,2404,482,52,25,8,7,2,2,-1,0,0,0,-1--1--1,0-0-0,|||255-0-0,0,0,0,0,0,0
+in case of limited antivirals, priority to ICU
+10,54,ICU medication demand,2382,770,51,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,55,ICU,2199,770,25,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,56,55,54,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,57,54,49,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,58,ICU medication coverage,2835,770,51,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,59,54,58,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,60,PPE,214,422,40,20,3,3,0,0,-1,0,0,0,0,0,0,0,0,0
+12,61,48,214,302,25,15,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,62,64,61,100,0,0,22,0,192,0,-1--1--1,,1|(214,328)|
+1,63,64,60,4,0,0,22,0,192,0,-1--1--1,,1|(214,376)|
+11,64,0,214,345,8,6,33,3,0,0,2,0,0,0,0,0,0,0,0,0
+10,65,acquisition PPE,157,345,49,11,40,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,66,ward capacity supply,-150,412,50,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,67,ward PPE usage,20,486,52,11,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,68,66,67,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+12,69,48,214,565,25,15,0,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,70,72,60,100,0,0,22,0,192,0,-1--1--1,,1|(214,461)|
+1,71,72,69,4,0,0,22,0,192,0,-1--1--1,,1|(214,521)|
+11,72,0,214,486,8,6,33,3,0,0,2,0,0,0,0,0,0,0,0,0
+10,73,PPE usage,171,486,35,11,40,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,74,67,73,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,75,staff visits per patient per day,518,584,48,19,8,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,76,ICU PPE needs per day,749,489,52,19,8,3,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-0-0,0,0,0,0,0,0
+10,77,PPE available for ICU per day,983,422,55,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,78,ICU staff realisible,1218,584,58,11,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,79,6,78,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,80,12,78,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,81,77,78,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,82,78,28,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,83,27,28,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,84,11,28,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,85,25,28,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,86,26,28,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,87,"ward patient-to-staff ratio",980,82,64,19,8,3,0,2,-1,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+10,88,PPE available for ward,980,337,55,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,89,ICU capacity supply,518,385,48,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,90,ICU PPE usage per day,749,336,75,30,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,91,89,90,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,92,90,88,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,93,ward staff realisible,1218,251,32,19,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,94,3,93,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,95,87,93,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,96,88,93,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,97,93,13,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,98,ICU,518,535,25,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,99,98,76,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,100,38,35,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,101,38,54,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,102,75,76,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,103,75,78,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,104,max PPE usage rate,749,422,50,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,105,60,104,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,106,104,77,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,107,PPE emergency emptying time,518,467,51,19,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,108,107,104,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,109,staff visits per patient per day,980,167,53,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,110,109,93,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,111,104,88,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,112,staff visits per patient per day,518,336,53,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,113,112,90,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+12,114,0,444,666,83,19,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|||128-0-64,0,0,0,0,0,0
+assuming 1 staff visit takes 1 kit of PPE equipment
+10,115,ICU PPE usage per day,20,590,56,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,116,115,73,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,117,staff visits per patient per day,-150,485,53,19,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,118,117,67,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,119,ICU,518,293,25,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,120,119,90,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,121,ward demand,-150,540,53,11,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,122,121,67,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+12,123,0,1533,730,166,47,8,7,0,19,-1,0,0,0,255-0-0,0-0-0,||S|255-0-0,0,0,0,0,0,0
+bit buggy, bc ICU capcity is not independent of the ICU usage ... again, Lis's ambigous variable naming.... it doesn't causes error on the model level, bc the demand never exceeds supply in that phase of the run
+10,124,maximum medication use,2382,490,47,19,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,125,medication emergency emptying time,2199,490,71,19,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|||255-128-0,0,0,0,0,0,0
+1,126,39,124,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,127,125,124,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,128,124,49,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+12,129,0,565,190,81,28,8,7,0,3,-1,0,0,0,255-0-0,0-0-0,|||255-0-0,0,0,0,0,0,0
+Staff absentiism is not affected by the number of infected people
+12,130,0,909,-76,110,28,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-0-0,0,0,0,0,0,0
+potential conceptual error -> surge capacity and anti-strain policies (Caroline + RUMC meeting)
+12,131,0,829,27,111,28,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|||128-0-64,0,0,0,0,0,0
+deleted shift things due lack of data + lack of this detailed complexity in the rest of the model (Mark)
+12,132,0,1537,790,22,11,8,7,0,0,-1,0,0,0,0,0,0,0,0,0
+fixed it
+12,133,0,875,550,106,28,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|||128-0-64,0,0,0,0,0,0
+staff visits per patient per day and ICU patient-to-staff ratio are not independent parameters!!!
+12,134,0,1550,371,150,38,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|||128-0-64,0,0,0,0,0,0
+Lisette's hidden assumption??: patient to bed ratio is there to split the capacity of a hospital to covid/non-covid parts, otherwise it messes with the mechanical ventillatior capacity!!! 
+12,135,0,977,719,95,28,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|||255-0-0,0,0,0,0,0,0
+OMG ..... patient to staff ratio doesn't modifies the ICU staff operational
+1,136,54,50,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,137,49,50,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,138,49,58,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+\\\---/// Sketch information - do not modify anything except names
+V300  Do not put anything below this section - it will be ignored
+*Statistics
+$192-192-192,0,Arial Unicode MS|12||0-0-0|0-0-0|0-0-255|-1--1--1|255-255-255|96,96,100,0
+10,1,vaccinated,1043,-11,49,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,2,R,1043,115,17,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,3,S,1043,241,17,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,4,E,1043,304,17,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,5,I,1043,367,13,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,6,long covid,1043,178,46,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,7,"pre-ICU ward",1043,469,57,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,8,ICU,1043,532,24,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,9,ward,1043,595,28,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,10,early release,1043,669,56,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,11,rehabilitation,1043,-74,56,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,12,total number of living persons,1379,273,54,18,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,13,1,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,14,2,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,15,6,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,16,3,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,17,4,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,18,5,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,19,7,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,20,8,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,21,9,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,22,10,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,23,11,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,24,quarantined susceptibles,1043,52,51,18,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,25,24,12,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,26,infected,754,469,32,10,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+1,27,4,26,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,28,5,26,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,29,7,26,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,30,8,26,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,31,9,26,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,32,10,26,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+1,33,4,26,0,0,0,0,0,192,0,-1--1--1,,1|(0,0)|
+10,34,deceased,432,-20,37,10,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,35,ICU deceased,245,-20,42,18,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,36,35,34,0,0,0,0,0,0,0,-1--1--1,,1|(0,0)|
+10,37,"pre-ICU deceased",245,-79,42,18,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,38,37,34,0,0,0,0,0,0,0,-1--1--1,,1|(0,0)|
+10,39,ward deceased,245,40,42,18,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,40,39,34,0,0,0,0,0,0,0,-1--1--1,,1|(0,0)|
+10,41,total socially active population,432,250,62,18,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,42,E,245,225,17,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,43,42,41,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,44,I,245,268,13,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,45,44,41,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,46,R,245,311,17,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,47,46,41,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,48,S,245,182,17,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,49,48,41,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,50,vaccinated,245,139,49,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,51,50,41,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,52,Waiting for hospital admission,1043,-125,73,18,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,53,52,12,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,54,recover at home,1043,418,42,18,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,55,54,26,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+1,56,54,12,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,57,total home care,432,510,56,10,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,58,early release,245,548,56,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,59,58,57,0,0,0,0,0,0,0,-1--1--1,,1|(0,0)|
+10,60,recover at home,245,472,42,18,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,61,60,57,0,0,0,0,0,0,0,-1--1--1,,1|(0,0)|
+10,62,total in hospital,432,744,54,10,8,3,0,0,-1,0,0,0,0,0,0,0,0,0
+10,63,ICU,245,744,24,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,64,63,62,0,0,0,0,0,0,0,-1--1--1,,1|(0,0)|
+10,65,"pre-ICU ward",245,682,57,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,66,65,62,0,0,0,0,0,0,0,-1--1--1,,1|(0,0)|
+10,67,ward,245,807,28,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,68,67,62,0,0,0,0,0,0,0,-1--1--1,,1|(0,0)|
+10,69,recover at home,245,362,42,18,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,70,69,41,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+\\\---/// Sketch information - do not modify anything except names
+V300  Do not put anything below this section - it will be ignored
+*Unit tests
+$192-192-192,0,Arial Unicode MS|12||0-0-0|0-0-0|0-0-255|-1--1--1|255-255-255|96,96,100,0
+10,1,total number of living persons,203,220,59,18,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,2,initial population size,201,161,60,18,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,3,deceased,203,271,46,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+10,4,should be zero,444,220,53,10,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,5,1,4,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,6,3,4,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+1,7,2,4,0,0,0,0,0,128,0,-1--1--1,,1|(0,0)|
+10,8,"d people/dt=0",627,220,50,10,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+1,9,4,8,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,10,"S>0",627,358,17,10,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,11,S,444,358,17,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,12,11,10,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,13,"E>0",627,417,15,10,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,14,E,444,417,17,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,15,14,13,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,16,"I>0",627,476,13,10,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,17,I,444,476,13,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,18,17,16,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+10,19,"R>0",627,536,17,10,8,3,0,0,0,0,0,0,0,0,0,0,0,0
+10,20,R,444,536,17,10,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|||128-128-128,0,0,0,0,0,0
+1,21,20,19,0,0,0,0,0,64,0,-1--1--1,,1|(0,0)|
+\\\---/// Sketch information - do not modify anything except names
+V300  Do not put anything below this section - it will be ignored
+*View 6
+$192-192-192,0,Arial Unicode MS|12||0-0-0|0-0-0|0-0-255|-1--1--1|255-255-255|96,96,100,0
+///---\\\
+:L<%^E!@
+1:prototype9_4.vdfx
+4:Time
+5:"d people/dt=0"[ageGroup]
+6:g1
+6:g2
+6:g3
+6:homeCare
+6:isolated
+6:isolatedSymptomatics
+6:nonisolated
+6:tg1
+6:tg2
+6:tg3
+6:unisolatedSymptomatics
+9:prototype9_4
+19:90,0
+24:0
+25:300
+26:300
+15:0,0,0,0,0,0
+27:0,
+34:0,
+42:0
+72:0
+73:0
+35:Date
+36:YYYY-MM-DD
+37:2020
+38:1
+39:1
+40:4
+41:0
+95:0
+96:0
+97:0
+77:1
+78:2
+102:0
+93:0
+94:0
+92:0
+91:0
+90:0
+87:0
+75:
+43:
+103:8,8,8,3,8
+105:0,0,0,0,0,0,0,0,0,0
+104:Courier|12||0-0-0|0-0-0|-1--1--1|0-0-255|192-192-192|-1--1--1
